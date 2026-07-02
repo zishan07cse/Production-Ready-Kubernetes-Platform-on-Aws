@@ -1,6 +1,6 @@
-# DevOps Assessment - Task 1 and Task 2
+# DevOps Assessment - Task 1, Task 2, and Task 3
 
-This repository contains the completed setup for **Task 1** and **Task 2** of the DevOps Engineer Assessment.
+This repository contains the completed setup for **Task 1**, **Task 2**, and **Task 3** of the DevOps Engineer Assessment.
 
 It includes:
 
@@ -15,6 +15,12 @@ It includes:
 - Mock Amazon EKS/Kubernetes deployment
 - GitHub release tag creation
 - Safe secrets management explanation
+- Kubernetes manifests for frontend and backend
+- Separate Kubernetes deployments and services
+- AWS EKS-style Ingress for external frontend access
+- Backend ConfigMap and Secret example
+- Kubernetes readiness and liveness probes
+- Kubernetes resource requests and limits
 
 ---
 
@@ -39,8 +45,17 @@ devops-assessment/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml
+├── k8s/
+│   ├── frontend-deployment.yaml
+│   ├── frontend-service.yaml
+│   ├── backend-deployment.yaml
+│   ├── backend-service.yaml
+│   ├── ingress.yaml
+│   ├── backend-configmap.yaml
+│   └── backend-secret-example.yaml
 ├── docs/
-│   └── task-2-ci-cd.md
+│   ├── task-2-ci-cd.md
+│   └── task-3-kubernetes.md
 ├── docker-compose.yml
 ├── .dockerignore
 ├── .gitignore
@@ -622,14 +637,386 @@ To convert this mock pipeline into a real AWS deployment:
 
 ---
 
+# Task 3: Kubernetes Manifests
+
+## Task 3 Overview
+
+Task 3 adds Kubernetes manifests under the `k8s/` folder.
+
+The manifests are designed for an AWS EKS-style Kubernetes deployment and include:
+
+- Separate frontend and backend Deployments
+- Separate frontend and backend Services
+- AWS ALB Ingress to expose the frontend externally
+- Internal-only backend Service
+- Backend ConfigMap
+- Backend Secret example for database credentials
+- Readiness probes
+- Liveness probes
+- Resource requests and limits
+- Non-`latest` image tags
+
+The Kubernetes files are written so they can be reviewed without creating real AWS resources.
+
+---
+
+## Kubernetes Files
+
+The required Kubernetes files are located in:
+
+```text
+k8s/
+├── frontend-deployment.yaml
+├── frontend-service.yaml
+├── backend-deployment.yaml
+├── backend-service.yaml
+├── ingress.yaml
+├── backend-configmap.yaml
+└── backend-secret-example.yaml
+```
+
+---
+
+## Frontend Deployment
+
+The frontend is deployed as a separate Kubernetes Deployment:
+
+```text
+k8s/frontend-deployment.yaml
+```
+
+Important configuration:
+
+- Deployment name: `frontend`
+- Container port: `80`
+- Replicas: `2`
+- Readiness probe: enabled
+- Liveness probe: enabled
+- Resource requests and limits: configured
+- Image tag: uses a fixed example tag such as `sha-demo`, not `latest`
+
+Example image format:
+
+```text
+000000000000.dkr.ecr.us-east-1.amazonaws.com/devops-assessment-frontend:sha-demo
+```
+
+In a real CI/CD deployment, the image tag would be updated with the Git commit SHA from the pipeline.
+
+---
+
+## Frontend Service
+
+The frontend service is defined in:
+
+```text
+k8s/frontend-service.yaml
+```
+
+The frontend Service uses:
+
+```text
+type: ClusterIP
+```
+
+The frontend is not directly exposed using a LoadBalancer Service. Instead, it is exposed externally through the Ingress.
+
+---
+
+## Backend Deployment
+
+The backend is deployed as a separate Kubernetes Deployment:
+
+```text
+k8s/backend-deployment.yaml
+```
+
+Important configuration:
+
+- Deployment name: `backend`
+- Container port: `8080`
+- Replicas: `2`
+- Readiness probe: `/health`
+- Liveness probe: `/health`
+- Resource requests and limits: configured
+- ConfigMap usage: enabled
+- Secret usage: enabled
+- Image tag: uses a fixed example tag such as `sha-demo`, not `latest`
+
+Example image format:
+
+```text
+000000000000.dkr.ecr.us-east-1.amazonaws.com/devops-assessment-backend:sha-demo
+```
+
+---
+
+## Backend Service
+
+The backend service is defined in:
+
+```text
+k8s/backend-service.yaml
+```
+
+The backend Service uses:
+
+```text
+type: ClusterIP
+```
+
+This means the backend is internal-only inside the Kubernetes cluster.
+
+The backend is not exposed through the Ingress and is not exposed through a public LoadBalancer.
+
+---
+
+## Backend ConfigMap
+
+The backend ConfigMap is defined in:
+
+```text
+k8s/backend-configmap.yaml
+```
+
+It stores non-sensitive backend configuration values:
+
+```text
+APP_ENV
+PORT
+DB_HOST
+DB_PORT
+DB_NAME
+```
+
+Example:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  APP_ENV: "production"
+  PORT: "8080"
+  DB_HOST: "postgres.internal.example.com"
+  DB_PORT: "5432"
+  DB_NAME: "appdb"
+```
+
+These values are non-sensitive and safe to keep in a ConfigMap.
+
+---
+
+## Backend Secret Example
+
+The backend Secret example is defined in:
+
+```text
+k8s/backend-secret-example.yaml
+```
+
+It contains example database credential keys:
+
+```text
+DB_USERNAME
+DB_PASSWORD
+```
+
+Example:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret-example
+type: Opaque
+stringData:
+  DB_USERNAME: "example-user"
+  DB_PASSWORD: "example-password"
+```
+
+These are example values only.
+
+For production, real database credentials should be stored in:
+
+- AWS Secrets Manager
+- External Secrets Operator
+- GitHub Secrets for CI/CD-level values
+- Kubernetes Secrets generated securely during deployment
+
+Real passwords must not be committed to GitHub.
+
+---
+
+## Ingress
+
+The Ingress file is:
+
+```text
+k8s/ingress.yaml
+```
+
+The Ingress exposes the frontend externally using AWS ALB Ingress annotations.
+
+Example annotations:
+
+```yaml
+alb.ingress.kubernetes.io/scheme: internet-facing
+alb.ingress.kubernetes.io/target-type: ip
+alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+```
+
+The Ingress routes public traffic to the frontend Service only.
+
+The backend remains internal and is not exposed externally.
+
+---
+
+## Kubernetes Probes
+
+Both frontend and backend deployments include readiness and liveness probes.
+
+### Backend probes
+
+The backend probes use:
+
+```text
+/health
+```
+
+on port:
+
+```text
+8080
+```
+
+This confirms that the backend API is healthy before Kubernetes sends traffic to it.
+
+### Frontend probes
+
+The frontend probes use:
+
+```text
+/
+```
+
+on port:
+
+```text
+80
+```
+
+This confirms that the Nginx frontend container is serving content properly.
+
+---
+
+## Resource Requests and Limits
+
+Both frontend and backend containers include resource requests and limits.
+
+Example:
+
+```yaml
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+```
+
+This helps Kubernetes schedule pods properly and prevents containers from using unlimited CPU or memory.
+
+---
+
+## Image Tagging Policy
+
+The Kubernetes manifests do not use the `latest` tag.
+
+Example tag:
+
+```text
+sha-demo
+```
+
+In a real deployment, the CI/CD pipeline would replace this with a commit-based image tag such as:
+
+```text
+sha-a1b2c3d
+```
+
+This makes deployments traceable and safer for rollback.
+
+---
+
+## Validate Kubernetes YAML
+
+If `kubectl` is installed, the manifests can be validated locally using:
+
+```bash
+kubectl apply --dry-run=client -f k8s/
+```
+
+This checks the YAML structure without applying resources to a real cluster.
+
+---
+
+## Apply to Kubernetes
+
+If a real Kubernetes or EKS cluster is available, the manifests can be applied with:
+
+```bash
+kubectl apply -f k8s/
+```
+
+Check resources:
+
+```bash
+kubectl get deployments
+kubectl get pods
+kubectl get svc
+kubectl get ingress
+```
+
+Important: applying these files to real AWS EKS may create AWS resources and cost if the AWS Load Balancer Controller provisions an ALB.
+
+---
+
+## Task 3 Requirement Checklist
+
+| Requirement                                      | Status    |
+| ------------------------------------------------ | --------- |
+| `k8s/frontend-deployment.yaml` exists            | Completed |
+| `k8s/frontend-service.yaml` exists               | Completed |
+| `k8s/backend-deployment.yaml` exists             | Completed |
+| `k8s/backend-service.yaml` exists                | Completed |
+| `k8s/ingress.yaml` exists                        | Completed |
+| `k8s/backend-configmap.yaml` exists              | Completed |
+| `k8s/backend-secret-example.yaml` exists         | Completed |
+| Frontend and backend are separate deployments    | Completed |
+| Backend runs on port `8080`                      | Completed |
+| Minimum 2 replicas configured                    | Completed |
+| Readiness probes configured                      | Completed |
+| Liveness probes configured                       | Completed |
+| Resource requests and limits configured          | Completed |
+| ConfigMap usage configured                       | Completed |
+| Secret example for database credentials included | Completed |
+| Image tag is not hardcoded as `latest`           | Completed |
+| Ingress exposes frontend externally              | Completed |
+| Backend is internal only using `ClusterIP`       | Completed |
+
+---
+
 # Git Commands After Updating Files
 
-After adding Task 2 files, run:
+After adding Task 2 and Task 3 files, run:
 
 ```bash
 git status
 git add .
-git commit -m "Add task 2 GitHub Actions CI CD pipeline"
+git commit -m "Add task 2 CI CD pipeline and task 3 Kubernetes manifests"
 git push
 ```
 
@@ -649,5 +1036,6 @@ Confirm that the workflow is running successfully.
 | ------------------------------------------------- | --------- |
 | Task 1: Frontend, Backend, Docker, Docker Compose | Completed |
 | Task 2: CI/CD Pipeline                            | Completed |
+| Task 3: Kubernetes Manifests                      | Completed |
 
-The project is ready for Task 3: Kubernetes manifests.
+The project is ready for Task 4: Private Database Connectivity.
