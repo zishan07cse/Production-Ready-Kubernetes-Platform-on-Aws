@@ -1,0 +1,128 @@
+name: CI/CD Pipeline - Docker, ECR Mock, EKS Mock
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  AWS_REGION: us-east-1
+  ECR_BACKEND_REPOSITORY: devops-assessment-backend
+  ECR_FRONTEND_REPOSITORY: devops-assessment-frontend
+
+jobs:
+  build-test-release-mock-deploy:
+    name: Build, Test, Tag, Release, Mock Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set image tag
+        id: vars
+        run: |
+          IMAGE_TAG="sha-${GITHUB_SHA::7}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Using image tag: $IMAGE_TAG"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build frontend static assets
+        working-directory: frontend
+        run: npm run build
+
+      - name: Build backend Docker image
+        run: |
+          docker build -t backend:${IMAGE_TAG} ./backend
+
+      - name: Build frontend Docker image
+        run: |
+          docker build -t frontend:${IMAGE_TAG} ./frontend
+
+      - name: Tag Docker images for Amazon ECR
+        run: |
+          AWS_ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          if [ -z "$AWS_ACCOUNT_ID" ]; then
+            AWS_ACCOUNT_ID="000000000000"
+            echo "AWS_ACCOUNT_ID secret not configured. Using mock account ID for image tagging."
+          fi
+
+          BACKEND_ECR_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_BACKEND_REPOSITORY}:${IMAGE_TAG}"
+          FRONTEND_ECR_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_FRONTEND_REPOSITORY}:${IMAGE_TAG}"
+
+          docker tag backend:${IMAGE_TAG} "$BACKEND_ECR_IMAGE"
+          docker tag frontend:${IMAGE_TAG} "$FRONTEND_ECR_IMAGE"
+
+          echo "BACKEND_ECR_IMAGE=$BACKEND_ECR_IMAGE" >> "$GITHUB_ENV"
+          echo "FRONTEND_ECR_IMAGE=$FRONTEND_ECR_IMAGE" >> "$GITHUB_ENV"
+
+          echo "Backend image tagged as: $BACKEND_ECR_IMAGE"
+          echo "Frontend image tagged as: $FRONTEND_ECR_IMAGE"
+
+      - name: Mock push images to Amazon ECR
+        run: |
+          echo "Mock push step completed."
+          echo "In real AWS deployment, these commands would be used:"
+          echo "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin <account-id>.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          echo "docker push ${BACKEND_ECR_IMAGE}"
+          echo "docker push ${FRONTEND_ECR_IMAGE}"
+
+      - name: Create GitHub release tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tagName = `task2-${context.sha.substring(0, 7)}`;
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tagName}`,
+                sha: context.sha
+              });
+              core.notice(`Created release tag: ${tagName}`);
+            } catch (error) {
+              if (error.status === 422) {
+                core.notice(`Release tag already exists: ${tagName}`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Mock deploy both apps to Kubernetes/EKS
+        run: |
+          echo "Mock Kubernetes deployment completed."
+          echo "In real AWS EKS deployment, these commands would be used:"
+          echo "aws eks update-kubeconfig --name <eks-cluster-name> --region ${AWS_REGION}"
+          echo "kubectl set image deployment/backend backend=${BACKEND_ECR_IMAGE} -n default"
+          echo "kubectl set image deployment/frontend frontend=${FRONTEND_ECR_IMAGE} -n default"
+          echo "kubectl rollout status deployment/backend -n default"
+          echo "kubectl rollout status deployment/frontend -n default"
