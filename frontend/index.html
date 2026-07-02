@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevOps Assessment Frontend</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      padding: 40px;
+      margin: 0;
+    }
+
+    .card {
+      max-width: 650px;
+      margin: auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #1f2937;
+      margin-top: 0;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #eef6ff;
+      border-left: 5px solid #2563eb;
+      border-radius: 6px;
+      word-break: break-word;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    code {
+      background: #f3f4f6;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Frontend Application</h1>
+    <p>This frontend is running in a separate Docker container.</p>
+    <p>The frontend calls the backend API through Nginx proxy path <code>/api/health</code>.</p>
+
+    <button onclick="checkBackend()">Check Backend Health</button>
+
+    <div class="status">
+      <strong>Backend Response:</strong>
+      <p id="backend-response">Not checked yet.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
