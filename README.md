@@ -1,6 +1,6 @@
-# DevOps Assessment - Task 1, Task 2, Task 3, Task 4, and Task 5
+# DevOps Assessment - Task 1, Task 2, Task 3, Task 4, Task 5 Task 6 and Task 7
 
-This repository contains the completed setup for **Task 1**, **Task 2**, **Task 3**, **Task 4**, and **Task 5** of the DevOps Engineer Assessment.
+This repository contains the completed setup for **Task 1**, **Task 2**, **Task 3**, **Task 4**,**Task 5**,**Task 6** and **Task 7** of the DevOps Engineer Assessment.
 
 It includes:
 
