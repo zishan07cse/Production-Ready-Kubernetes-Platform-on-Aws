@@ -1796,6 +1796,844 @@ For assessment review, the Terraform code can be submitted as Infrastructure as 
 
 ---
 
+# Task 6: Troubleshooting Questions
+
+This document answers the required troubleshooting questions for the DevOps Engineer Assessment.
+
+---
+
+## 1. Pod is in CrashLoopBackOff. What do you check?
+
+Check the pod logs first:
+
+```bash
+kubectl logs <pod-name>
+kubectl logs <pod-name> --previous
+```
+
+Then check:
+
+- Pod events using `kubectl describe pod <pod-name>`
+- Application startup command
+- Missing environment variables
+- Missing ConfigMap or Secret
+- Wrong image tag
+- Application port mismatch
+- Readiness/liveness probe failure
+- Resource limits and `OOMKilled` events
+- Dependency failures such as database or API connection issues
+
+---
+
+## 2. Deployment is successful, but app is not reachable. What do you check?
+
+Check:
+
+- Pods are running and ready:
+
+```bash
+kubectl get pods
+```
+
+- Service exists and points to the correct pod labels:
+
+```bash
+kubectl get svc
+kubectl describe svc <service-name>
+```
+
+- Deployment selector and pod labels match
+- Container port and service `targetPort` are correct
+- Ingress is configured correctly
+- DNS record points to the correct load balancer
+- Security group/firewall allows traffic
+- Application is listening on `0.0.0.0`, not only `localhost`
+- Backend service is internal-only if it should not be public
+
+---
+
+## 3. Difference between readiness and liveness probe?
+
+A readiness probe tells Kubernetes when a pod is ready to receive traffic.
+
+If readiness fails, Kubernetes keeps the pod running but removes it from service endpoints.
+
+A liveness probe tells Kubernetes whether the container is still healthy.
+
+If liveness fails, Kubernetes restarts the container.
+
+In short:
+
+```text
+Readiness = Should traffic be sent to this pod?
+Liveness  = Should this container be restarted?
+```
+
+---
+
+## 4. Docker build works locally but fails in pipeline. Why?
+
+Possible reasons:
+
+- Missing files because `.dockerignore` excludes required content
+- Case-sensitive file path issue in Linux runner
+- Different Node.js or package manager version
+- Missing environment variables in pipeline
+- Pipeline working directory is incorrect
+- Dependency version mismatch
+- Private package registry credentials are missing
+- Dockerfile depends on local files that are not committed
+- Build cache exists locally but not in CI
+
+---
+
+## 5. Pipeline fails during Docker build. What do you check?
+
+Check:
+
+- GitHub Actions logs for the exact build error
+- Dockerfile syntax
+- Build context path
+- Required files are committed to GitHub
+- `.dockerignore` is not excluding required files
+- `package.json` and lock file are present
+- Dependency installation step
+- Base image availability
+- Network access to package registries
+- Memory or disk limits in the CI runner
+
+Useful command locally:
+
+```bash
+docker build --no-cache -t test-image ./backend
+```
+
+---
+
+## 6. Certificate renewal failed. What do you check?
+
+Check:
+
+- Certificate manager logs, such as cert-manager logs
+- Certificate resource status
+- Issuer or ClusterIssuer status
+- DNS validation record
+- HTTP validation path
+- Ingress annotations
+- Domain DNS points to the correct load balancer
+- Security group allows HTTP/HTTPS traffic
+- Certificate expiration date
+- Rate limits from the certificate authority
+- For AWS, check ACM certificate validation status if ACM is used
+
+Commands:
+
+```bash
+kubectl get certificate
+kubectl describe certificate <certificate-name>
+kubectl describe issuer <issuer-name>
+```
+
+---
+
+## 7. Ingress returns 502 or 504. What do you check?
+
+Check:
+
+- Backend pods are running and ready
+- Service has active endpoints:
+
+```bash
+kubectl get endpoints
+```
+
+- Ingress backend service name and port are correct
+- Application container listens on the expected port
+- Readiness probe is not failing
+- AWS Load Balancer Controller logs
+- ALB target group health
+- Security group rules between ALB and worker nodes/pods
+- Timeout settings for long-running requests
+- Network policies blocking traffic
+
+For 502, usually check bad upstream or unhealthy target.
+
+For 504, usually check timeout, slow backend, or network path issue.
+
+---
+
+## 8. Vendor SFTP connection to port 22 times out. What do you check?
+
+Check:
+
+- Vendor IP address is whitelisted
+- Security group allows inbound TCP port 22
+- Network ACL allows traffic
+- Route table has correct route
+- Server is running and listening on port 22
+- SSH/SFTP daemon status
+- Firewall rules inside the server
+- Public IP or private VPN connectivity
+- DNS hostname resolves correctly
+- Vendor is connecting to the correct hostname and port
+- Fail2ban or security tool has not blocked the vendor IP
+
+Useful checks:
+
+```bash
+nc -vz <sftp-host> 22
+telnet <sftp-host> 22
+```
+
+---
+
+## 9. Terraform plan wants to recreate the cluster. What do you check?
+
+Check:
+
+- Cluster name changed
+- VPC ID or subnet IDs changed
+- Kubernetes version change requires replacement
+- Immutable EKS field changed
+- Terraform state is missing or incorrect
+- Wrong workspace or backend is selected
+- Resource was changed manually in AWS
+- Provider version changed behavior
+- Module resource names changed
+- Variable values are different from the previous apply
+
+Do not apply destructive changes until the reason is clear.
+
+Use:
+
+```bash
+terraform plan
+terraform state list
+terraform state show <resource>
+```
+
+---
+
+## 10. How would you upgrade AKS/EKS safely?
+
+For EKS:
+
+1. Check supported Kubernetes upgrade path.
+2. Upgrade dev first.
+3. Review `terraform plan`.
+4. Take backups of critical data.
+5. Upgrade the EKS control plane first.
+6. Upgrade managed node groups after the control plane.
+7. Use rolling node updates.
+8. Keep at least 2 application replicas.
+9. Confirm readiness probes are working.
+10. Verify pods, services, ingress, logs, metrics, and application health.
+11. Upgrade staging.
+12. Upgrade production during an approved maintenance window.
+
+Do not upgrade production first.
+
+---
+
+## 11. Frontend loads, but backend API calls fail. What do you check?
+
+Check:
+
+- Browser developer console network errors
+- Frontend API URL
+- Nginx proxy configuration
+- Backend service name and port
+- Backend pod status
+- Backend service endpoints
+- CORS configuration if frontend directly calls backend
+- Ingress path routing
+- DNS resolution inside the cluster
+- Security group or network policy blocking traffic
+- Backend logs
+
+Commands:
+
+```bash
+kubectl get pods
+kubectl get svc
+kubectl get endpoints
+kubectl logs deploy/backend
+```
+
+---
+
+## 12. Backend pod is running, but database connection times out. What do you check?
+
+Check:
+
+- DB hostname and port values
+- Kubernetes ConfigMap values
+- Kubernetes Secret values
+- RDS endpoint is private and reachable from EKS
+- Database security group allows traffic from EKS/backend security group
+- Database subnet route table
+- Network ACL rules
+- Private DNS resolution
+- Database is running and accepting connections
+- Correct database port: PostgreSQL `5432`, MySQL `3306`
+- Credentials are correct
+- SSL requirement if enabled by database
+
+From backend pod:
+
+```bash
+kubectl exec -it <backend-pod-name> -- sh
+nc -vz $DB_HOST $DB_PORT
+```
+
+---
+
+## 13. Private DNS is not resolving database hostname. What do you check?
+
+Check:
+
+- VPC DNS support is enabled
+- VPC DNS hostnames are enabled
+- Correct private hosted zone exists
+- Private hosted zone is associated with the correct VPC
+- RDS endpoint is correct
+- CoreDNS pods are running in Kubernetes
+- Pod DNS policy is correct
+- Network rules allow DNS traffic to the cluster DNS service
+- `/etc/resolv.conf` inside the pod
+- No custom DNS misconfiguration
+
+Commands:
+
+```bash
+kubectl get pods -n kube-system
+kubectl logs -n kube-system deploy/coredns
+kubectl exec -it <pod-name> -- nslookup <db-hostname>
+```
+
+---
+
+## 14. How would you rotate database credentials safely?
+
+Steps:
+
+1. Create new database credentials.
+2. Store the new credentials in AWS Secrets Manager or Kubernetes Secret.
+3. Update backend deployment to use the new secret.
+4. Roll out backend pods gradually.
+5. Verify the application connects successfully.
+6. Keep old credentials temporarily during the transition.
+7. Remove old credentials after verification.
+8. Audit logs for failed connections.
+
+Safe rotation should avoid downtime by allowing old and new credentials during the transition where possible.
+
+For production, automate rotation using AWS Secrets Manager rotation or External Secrets Operator.
+
+---
+
+## 15. Secrets were accidentally committed to GitHub. What do you do?
+
+Immediately:
+
+1. Revoke or rotate the exposed secret.
+2. Remove the secret from the code.
+3. Remove it from Git history if required.
+4. Force push only if the team agrees and understands the impact.
+5. Check GitHub secret scanning alerts.
+6. Check cloud logs for suspicious activity.
+7. Move secrets to GitHub Secrets, AWS Secrets Manager, or another secret manager.
+8. Add `.env`, state files, and secret files to `.gitignore`.
+9. Notify the security/team lead if this is a real production secret.
+
+Important: deleting the file in a later commit is not enough because the secret still exists in Git history.
+
+Tools that can help clean history:
+
+```text
+git filter-repo
+BFG Repo-Cleaner
+```
+
+---
+
+# Task 7: Future Improvement Proposal
+
+This document explains future improvements recommended for the production-style DevOps platform.
+
+For each improvement, this section includes:
+
+- What improvement is recommended
+- Why it is needed
+- How it helps the team or business
+- How it would be implemented
+- What risk it reduces
+
+---
+
+## 1. Secret Management
+
+### What improvement is recommended?
+
+Use AWS Secrets Manager with External Secrets Operator instead of storing real secrets directly in Kubernetes YAML files.
+
+### Why is it needed?
+
+Secrets in plain YAML files can be accidentally committed to GitHub or exposed to people who should not have access.
+
+### How does it help the team or business?
+
+It improves security, centralizes secret management, and makes secret rotation easier.
+
+### How would it be implemented?
+
+- Store database credentials in AWS Secrets Manager.
+- Install External Secrets Operator in EKS.
+- Configure Kubernetes ExternalSecret resources.
+- Use IAM Roles for Service Accounts to allow limited access to secrets.
+- Remove real credentials from Kubernetes manifests.
+
+### What risk does it reduce?
+
+It reduces the risk of credential leaks, unauthorized database access, and manual secret rotation mistakes.
+
+---
+
+## 2. Image Vulnerability Scanning
+
+### What improvement is recommended?
+
+Add container image vulnerability scanning.
+
+### Why is it needed?
+
+Docker images may contain vulnerable OS packages or application dependencies.
+
+### How does it help the team or business?
+
+It helps detect security issues before images are deployed to Kubernetes.
+
+### How would it be implemented?
+
+- Enable Amazon ECR scan on push.
+- Add Trivy or Grype scanning in GitHub Actions.
+- Fail the pipeline for critical vulnerabilities.
+- Review and patch vulnerable packages regularly.
+
+### What risk does it reduce?
+
+It reduces the risk of deploying vulnerable containers to production.
+
+---
+
+## 3. Monitoring and Alerting
+
+### What improvement is recommended?
+
+Add centralized monitoring, logging, and alerting.
+
+### Why is it needed?
+
+Without monitoring, failures may not be noticed until users report them.
+
+### How does it help the team or business?
+
+It improves reliability, incident response, and operational visibility.
+
+### How would it be implemented?
+
+- Use Amazon CloudWatch for EKS logs.
+- Use Prometheus and Grafana for Kubernetes metrics.
+- Create alerts for pod restarts, high CPU, high memory, failed deployments, and unhealthy ingress targets.
+- Send alerts to email, Slack, or incident management tools.
+
+### What risk does it reduce?
+
+It reduces the risk of long outages and unnoticed production failures.
+
+---
+
+## 4. Rollback Strategy
+
+### What improvement is recommended?
+
+Define a clear rollback strategy for failed deployments.
+
+### Why is it needed?
+
+A new release can introduce bugs or break production traffic.
+
+### How does it help the team or business?
+
+It allows the team to recover quickly from failed deployments.
+
+### How would it be implemented?
+
+- Use versioned Docker image tags based on Git commit SHA.
+- Use Kubernetes rolling updates.
+- Keep previous ReplicaSets.
+- Roll back using:
+
+```bash
+kubectl rollout undo deployment/backend
+kubectl rollout undo deployment/frontend
+```
+
+### What risk does it reduce?
+
+It reduces downtime caused by failed application releases.
+
+---
+
+## 5. Helm Chart
+
+### What improvement is recommended?
+
+Package Kubernetes manifests into a Helm chart.
+
+### Why is it needed?
+
+Managing many YAML files manually becomes difficult as the platform grows.
+
+### How does it help the team or business?
+
+It standardizes deployments across dev, staging, and production.
+
+### How would it be implemented?
+
+- Create a Helm chart for frontend and backend.
+- Move image tags, replica counts, resource limits, and ingress hostnames into `values.yaml`.
+- Create separate values files for each environment.
+
+### What risk does it reduce?
+
+It reduces manual configuration errors and environment drift.
+
+---
+
+## 6. Terraform Remote Backend
+
+### What improvement is recommended?
+
+Use an S3 remote backend with Terraform state locking.
+
+### Why is it needed?
+
+Local Terraform state is unsafe for team collaboration.
+
+### How does it help the team or business?
+
+It lets multiple engineers work safely with shared infrastructure state.
+
+### How would it be implemented?
+
+- Create an S3 bucket for Terraform state.
+- Enable versioning and encryption.
+- Enable Terraform state locking.
+- Use separate state keys for dev, staging, and production.
+
+### What risk does it reduce?
+
+It reduces the risk of corrupted, lost, or conflicting Terraform state.
+
+---
+
+## 7. Kubernetes Autoscaling
+
+### What improvement is recommended?
+
+Add Horizontal Pod Autoscaler and node autoscaling.
+
+### Why is it needed?
+
+Traffic can increase or decrease over time.
+
+### How does it help the team or business?
+
+It improves performance during high traffic and reduces cost during low traffic.
+
+### How would it be implemented?
+
+- Install Metrics Server.
+- Configure Horizontal Pod Autoscaler for frontend and backend.
+- Use Cluster Autoscaler or Karpenter for EKS node scaling.
+- Set proper CPU and memory requests.
+
+### What risk does it reduce?
+
+It reduces the risk of overload and unnecessary infrastructure cost.
+
+---
+
+## 8. Cluster Upgrade Strategy
+
+### What improvement is recommended?
+
+Create a documented EKS upgrade strategy.
+
+### Why is it needed?
+
+Kubernetes versions eventually become unsupported.
+
+### How does it help the team or business?
+
+It keeps the cluster secure, stable, and supported.
+
+### How would it be implemented?
+
+- Upgrade dev first.
+- Run tests.
+- Upgrade staging.
+- Upgrade production during a maintenance window.
+- Upgrade the control plane before node groups.
+- Verify workloads after each upgrade.
+
+### What risk does it reduce?
+
+It reduces the risk of unsupported Kubernetes versions and upgrade-related outages.
+
+---
+
+## 9. Production Approval Gates
+
+### What improvement is recommended?
+
+Add manual approval before production deployment.
+
+### Why is it needed?
+
+Production deployments should be controlled and reviewed.
+
+### How does it help the team or business?
+
+It prevents accidental or unauthorized production releases.
+
+### How would it be implemented?
+
+- Use GitHub Environments.
+- Require approval for production.
+- Restrict who can approve production deployments.
+- Keep automatic deployment for dev and staging only.
+
+### What risk does it reduce?
+
+It reduces the risk of accidental production changes.
+
+---
+
+## 10. Private Cluster
+
+### What improvement is recommended?
+
+Use a private EKS cluster endpoint for production.
+
+### Why is it needed?
+
+A public Kubernetes API endpoint increases the attack surface.
+
+### How does it help the team or business?
+
+It improves cluster security.
+
+### How would it be implemented?
+
+- Disable public endpoint access for production EKS.
+- Enable private endpoint access.
+- Access the cluster through VPN, bastion host, or secure CI/CD runner inside the VPC.
+- Use least-privilege IAM permissions.
+
+### What risk does it reduce?
+
+It reduces the risk of public Kubernetes API exposure.
+
+---
+
+## 11. WAF
+
+### What improvement is recommended?
+
+Add AWS WAF in front of the public Application Load Balancer.
+
+### Why is it needed?
+
+Public web applications are exposed to common web attacks.
+
+### How does it help the team or business?
+
+It adds protection for internet-facing traffic.
+
+### How would it be implemented?
+
+- Attach AWS WAF to the ALB.
+- Enable AWS managed rule groups.
+- Add rate limiting.
+- Monitor blocked requests.
+
+### What risk does it reduce?
+
+It reduces the risk of SQL injection, cross-site scripting, bots, and abusive traffic.
+
+---
+
+## 12. GitOps with Argo CD
+
+### What improvement is recommended?
+
+Use Argo CD for GitOps-based Kubernetes deployment.
+
+### Why is it needed?
+
+Manual deployment or direct pipeline deployment can cause configuration drift.
+
+### How does it help the team or business?
+
+It makes Git the source of truth for Kubernetes state.
+
+### How would it be implemented?
+
+- Install Argo CD in EKS.
+- Store Kubernetes manifests or Helm charts in GitHub.
+- Configure Argo CD Applications for dev, staging, and production.
+- Let Argo CD sync the desired state to the cluster.
+
+### What risk does it reduce?
+
+It reduces configuration drift and improves deployment auditability.
+
+---
+
+## 13. Blue/Green or Canary Deployment
+
+### What improvement is recommended?
+
+Use blue/green or canary deployment for safer releases.
+
+### Why is it needed?
+
+Deploying a new version to all users at once can be risky.
+
+### How does it help the team or business?
+
+It allows gradual rollout and quick rollback.
+
+### How would it be implemented?
+
+- Use Argo Rollouts or Flagger.
+- Route a small percentage of traffic to the new version.
+- Monitor error rate and latency.
+- Promote or roll back based on metrics.
+
+### What risk does it reduce?
+
+It reduces the risk of full production outage from a bad release.
+
+---
+
+## 14. Backup and Disaster Recovery
+
+### What improvement is recommended?
+
+Add backup and disaster recovery planning.
+
+### Why is it needed?
+
+Databases, clusters, or infrastructure can fail.
+
+### How does it help the team or business?
+
+It protects business continuity and data availability.
+
+### How would it be implemented?
+
+- Enable automated RDS backups.
+- Take RDS snapshots before major changes.
+- Use Velero for Kubernetes backup.
+- Test restore procedures regularly.
+- Define Recovery Time Objective and Recovery Point Objective.
+
+### What risk does it reduce?
+
+It reduces data loss and recovery delay after failures.
+
+---
+
+## 15. Network Policies
+
+### What improvement is recommended?
+
+Add Kubernetes NetworkPolicies.
+
+### Why is it needed?
+
+By default, pods may communicate broadly inside the cluster.
+
+### How does it help the team or business?
+
+It limits internal traffic to only required communication paths.
+
+### How would it be implemented?
+
+- Use a CNI that supports NetworkPolicy.
+- Allow frontend to communicate only with backend.
+- Allow backend to communicate only with database and required services.
+- Deny unnecessary pod-to-pod communication.
+
+### What risk does it reduce?
+
+It reduces lateral movement risk if a pod is compromised.
+
+---
+
+## 16. Cost Optimization
+
+### What improvement is recommended?
+
+Add cloud cost monitoring and optimization.
+
+### Why is it needed?
+
+Cloud resources can become expensive if not monitored.
+
+### How does it help the team or business?
+
+It reduces unnecessary AWS spending.
+
+### How would it be implemented?
+
+- Use AWS Cost Explorer and AWS Budgets.
+- Right-size EKS worker nodes.
+- Use autoscaling.
+- Use Spot instances for non-critical workloads.
+- Set CloudWatch log retention limits.
+- Remove unused load balancers, EBS volumes, and snapshots.
+
+### What risk does it reduce?
+
+It reduces the risk of unexpected cloud bills and wasted infrastructure cost.
+
+---
+
+## Task 7 Requirement Checklist
+
+| Improvement Area                | Status    |
+| ------------------------------- | --------- |
+| Secret management               | Completed |
+| Image vulnerability scanning    | Completed |
+| Monitoring and alerting         | Completed |
+| Rollback strategy               | Completed |
+| Helm chart                      | Completed |
+| Terraform remote backend        | Completed |
+| Kubernetes autoscaling          | Completed |
+| Cluster upgrade strategy        | Completed |
+| Production approval gates       | Completed |
+| Private cluster                 | Completed |
+| WAF                             | Completed |
+| GitOps with Argo CD             | Completed |
+| Blue/green or canary deployment | Completed |
+| Backup and disaster recovery    | Completed |
+| Network policies                | Completed |
+| Cost optimization               | Completed |
+
 # Final Completion Status
 
 | Task                                              | Status    |
@@ -1805,5 +2643,7 @@ For assessment review, the Terraform code can be submitted as Infrastructure as 
 | Task 3: Kubernetes Manifests                      | Completed |
 | Task 4: Private Database Connectivity             | Completed |
 | Task 5: Terraform Cluster Provisioning            | Completed |
+| Task 6: Troubleshooting Questions                 | Completed |
+| Task 7: Future Improvement Proposal               | Completed |
 
 The project documentation now covers frontend/backend containerization, CI/CD, Kubernetes manifests, private database connectivity, and Terraform-based EKS provisioning.
