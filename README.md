@@ -71,6 +71,9 @@ devops-assessment/
 │   ├── task-2-ci-cd.md
 │   ├── task-3-kubernetes.md
 │   └── task-5-terraform.md
+│   ├── troubleshooting.md
+│   └── future-improvements.md
+│   
 ├── terraform/
 │   ├── provider.tf
 │   ├── main.tf
