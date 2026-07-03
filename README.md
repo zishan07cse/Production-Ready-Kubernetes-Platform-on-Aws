@@ -1,4 +1,4 @@
-# DevOps Assessment - Task 1, Task 2, Task 3, Task 4, Task 5 Task 6 and Task 7
+# DevOps Assessment - Task 1, Task 2, Task 3, Task 4, Task 5, Task 6 and Task 7
 
 This repository contains the completed setup for **Task 1**, **Task 2**, **Task 3**, **Task 4**,**Task 5**,**Task 6** and **Task 7** of the DevOps Engineer Assessment.
 
@@ -41,7 +41,12 @@ It includes:
 # Project Structure
 
 ```text
+
 devops-assessment/
+├── frontend/
+│   ├── Dockerfile
+│   ├── package.json
+│   └── source files
 ├── backend/
 │   ├── Dockerfile
 │   ├── package.json
@@ -50,12 +55,6 @@ devops-assessment/
 │   │   └── server.js
 │   └── tests/
 │       └── app.test.js
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── index.html
-│   ├── app.js
-│   └── nginx.conf
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml
@@ -68,12 +67,8 @@ devops-assessment/
 │   ├── backend-configmap.yaml
 │   └── backend-secret-example.yaml
 ├── docs/
-│   ├── task-2-ci-cd.md
-│   ├── task-3-kubernetes.md
-│   └── task-5-terraform.md
 │   ├── troubleshooting.md
 │   └── future-improvements.md
-│   
 ├── terraform/
 │   ├── provider.tf
 │   ├── main.tf

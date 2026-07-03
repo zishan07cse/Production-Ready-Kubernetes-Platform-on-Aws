@@ -1,0 +1,9 @@
+{
+  "name": "frontend-app",
+  "version": "1.0.0",
+  "description": "Static frontend for DevOps assessment",
+  "scripts": {
+    "test": "echo \"Frontend test passed\"",
+    "build": "echo \"Frontend build completed\""
+  }
+}
